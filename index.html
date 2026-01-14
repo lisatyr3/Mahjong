@@ -12,7 +12,6 @@
   --text:#142033;
   --border:#d9e0ea;
   --accent:#2a7b6f;
-
   --tileW:82px;
   --tileH:110px;
   --gap:6px;
@@ -124,7 +123,6 @@ button {
 .tile.hidden {
   visibility:hidden;
 }
-
 </style>
 </head>
 
@@ -262,32 +260,41 @@ function updateStats() {
   movesEl.textContent = moves;
 }
 
+/* 🔒 TRUE MAHJONG BLOCKING */
 function isBlocked(tile) {
-  const r = +tile.dataset.r;
-  const c = +tile.dataset.c;
-  const z = +tile.dataset.z;
+  const rect = tile.getBoundingClientRect();
 
-  // On top?
-  if (tiles.some(t =>
-    !t.classList.contains("hidden") &&
-    +t.dataset.z > z &&
-    Math.abs(t.dataset.r - r) < 1 &&
-    Math.abs(t.dataset.c - c) < 1
-  )) return true;
+  // Blocked if anything overlaps from above
+  for (const t of tiles) {
+    if (
+      t === tile ||
+      t.classList.contains("hidden") ||
+      +t.dataset.z <= +tile.dataset.z
+    ) continue;
 
-  // Left and right blocked?
+    const r = t.getBoundingClientRect();
+    const overlap =
+      r.left < rect.right - 10 &&
+      r.right > rect.left + 10 &&
+      r.top < rect.bottom - 10 &&
+      r.bottom > rect.top + 10;
+
+    if (overlap) return true;
+  }
+
+  // Blocked if BOTH left and right neighbors exist
   const left = tiles.some(t =>
     !t.classList.contains("hidden") &&
-    +t.dataset.z === z &&
-    +t.dataset.r === r &&
-    +t.dataset.c === c-1
+    +t.dataset.z === +tile.dataset.z &&
+    +t.dataset.r === +tile.dataset.r &&
+    +t.dataset.c === +tile.dataset.c - 1
   );
 
   const right = tiles.some(t =>
     !t.classList.contains("hidden") &&
-    +t.dataset.z === z &&
-    +t.dataset.r === r &&
-    +t.dataset.c === c+1
+    +t.dataset.z === +tile.dataset.z &&
+    +t.dataset.r === +tile.dataset.r &&
+    +t.dataset.c === +tile.dataset.c + 1
   );
 
   return left && right;
@@ -326,8 +333,8 @@ function clickTile(tile) {
     selected.classList.add("hidden");
     tile.classList.add("hidden");
     moves++;
-    updateStats();
     undoStack.push([selected, tile]);
+    updateStats();
   }
 
   selected.classList.remove("selected");
