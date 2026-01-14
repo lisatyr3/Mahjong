@@ -10,18 +10,17 @@
   --bg:#f6f7fb;
   --panel:#ffffff;
   --text:#142033;
-  --muted:#5c6b82;
   --border:#d9e0ea;
   --accent:#2a7b6f;
 
   --tileW:82px;
   --tileH:110px;
-  --gap:8px;
+  --gap:6px;
 }
 
 body {
   margin:0;
-  font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family:system-ui, sans-serif;
   background:var(--bg);
   color:var(--text);
 }
@@ -35,8 +34,6 @@ body.high-contrast {
   --bg:#0b1020;
   --panel:#0f172a;
   --text:#f8fafc;
-  --muted:#cbd5e1;
-  --border:#22304a;
 }
 
 .wrap {
@@ -54,22 +51,9 @@ header {
 
 .top {
   display:flex;
+  justify-content:space-between;
   flex-wrap:wrap;
   gap:12px;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.stats {
-  display:flex;
-  gap:10px;
-}
-
-.stat {
-  padding:6px 10px;
-  border:1px solid var(--border);
-  border-radius:999px;
-  font-size:14px;
 }
 
 .controls {
@@ -83,15 +67,14 @@ button {
   padding:8px 12px;
   border-radius:10px;
   border:1px solid var(--border);
-  background:var(--panel);
+  background:#fff;
   cursor:pointer;
 }
 
 .toggle {
   display:flex;
-  gap:6px;
   align-items:center;
-  font-size:14px;
+  gap:6px;
 }
 
 .board-wrap {
@@ -122,28 +105,26 @@ button {
   font-weight:700;
   cursor:pointer;
   user-select:none;
-}
-
-body.high-contrast .tile {
-  background:#111a33;
-  border-color:#334155;
-  color:#f8fafc;
+  transition:.15s;
 }
 
 .tile.free {
-  box-shadow:0 0 0 8px rgba(42,123,111,.2);
+  box-shadow:0 0 0 8px rgba(42,123,111,.18);
+}
+
+.tile.blocked {
+  opacity:.45;
+  cursor:not-allowed;
 }
 
 .tile.selected {
   outline:4px solid #2563eb;
 }
 
-.help {
-  margin-top:12px;
-  display:none;
-  font-size:14px;
-  color:var(--muted);
+.tile.hidden {
+  visibility:hidden;
 }
+
 </style>
 </head>
 
@@ -153,10 +134,10 @@ body.high-contrast .tile {
 <header>
   <div class="top">
     <h2>Mahjong Solitaire</h2>
-    <div class="stats">
-      <div class="stat"><span id="tilesLeft">144</span> tiles left</div>
-      <div class="stat"><span id="moves">0</span> moves</div>
-      <div class="stat">Time <span id="time">00:00</span></div>
+    <div>
+      <span id="tilesLeft">144</span> tiles left ·
+      <span id="moves">0</span> moves ·
+      Time <span id="time">00:00</span>
     </div>
   </div>
 
@@ -165,23 +146,16 @@ body.high-contrast .tile {
     <button onclick="restart()">Restart</button>
     <button onclick="hint()">Hint</button>
     <button onclick="undo()">Undo</button>
-    <button onclick="shuffleRemaining()">Shuffle Remaining</button>
-    <button onclick="toggleHelp()">How to Play</button>
 
     <label class="toggle">
-      <input type="checkbox" onchange="document.body.classList.toggle('large-tiles')" />
+      <input type="checkbox" onchange="document.body.classList.toggle('large-tiles')">
       Large tiles
     </label>
 
     <label class="toggle">
-      <input type="checkbox" onchange="document.body.classList.toggle('high-contrast')" />
+      <input type="checkbox" onchange="document.body.classList.toggle('high-contrast')">
       High contrast
     </label>
-  </div>
-
-  <div class="help" id="help">
-    Match two free tiles to remove them. A tile is free if nothing is on top
-    and one side is open. Clear the board to win.
   </div>
 </header>
 
@@ -192,132 +166,203 @@ body.high-contrast .tile {
 </div>
 
 <script>
-let tiles=[], selected=null, moves=0, startTime=0, timerInt=null, undoStack=[];
+const board = document.getElementById("board");
+const tilesLeftEl = document.getElementById("tilesLeft");
+const movesEl = document.getElementById("moves");
+const timeEl = document.getElementById("time");
 
-const board=document.getElementById("board");
-const tilesLeft=document.getElementById("tilesLeft");
-const movesEl=document.getElementById("moves");
-const timeEl=document.getElementById("time");
+let tiles = [];
+let selected = null;
+let moves = 0;
+let startTime = 0;
+let timer = null;
+let undoStack = [];
 
-function startTimer(){
-  if(timerInt) return;
-  startTime=Date.now();
-  timerInt=setInterval(()=>{
-    const t=Math.floor((Date.now()-startTime)/1000);
-    timeEl.textContent=
-      String(Math.floor(t/60)).padStart(2,"0")+":"+
+/* Classic layered layout */
+const layout = [];
+let id = 0;
+
+// Base layer
+for (let r=0; r<8; r++) {
+  for (let c=0; c<18; c++) {
+    layout.push({id:id++, r, c, z:0});
+  }
+}
+
+// Upper layer
+for (let r=2; r<6; r++) {
+  for (let c=4; c<14; c++) {
+    layout.push({id:id++, r, c, z:1});
+  }
+}
+
+function startTimer() {
+  if (timer) return;
+  startTime = Date.now();
+  timer = setInterval(() => {
+    const t = Math.floor((Date.now() - startTime) / 1000);
+    timeEl.textContent =
+      String(Math.floor(t/60)).padStart(2,"0") + ":" +
       String(t%60).padStart(2,"0");
-  },500);
+  }, 500);
 }
 
-function stopTimer(){
-  clearInterval(timerInt);
-  timerInt=null;
+function stopTimer() {
+  clearInterval(timer);
+  timer = null;
 }
 
-function toggleHelp(){
-  const h=document.getElementById("help");
-  h.style.display=h.style.display==="block"?"none":"block";
-}
-
-function buildTiles(){
-  const list=[];
-  for(let i=1;i<=36;i++){
-    for(let j=0;j<4;j++) list.push("T"+i);
+function buildValues() {
+  const vals = [];
+  for (let i=1;i<=36;i++) {
+    for (let j=0;j<4;j++) vals.push("T"+i);
   }
-  return list;
+  return vals.sort(()=>Math.random()-0.5);
 }
 
-function newGame(){
+function newGame() {
   stopTimer();
-  moves=0;
-  undoStack=[];
-  selected=null;
-  board.innerHTML="";
-  tiles=[];
-  movesEl.textContent=0;
-  timeEl.textContent="00:00";
+  moves = 0;
+  selected = null;
+  undoStack = [];
+  board.innerHTML = "";
+  tiles = [];
 
-  const values=buildTiles().sort(()=>Math.random()-0.5);
+  movesEl.textContent = "0";
+  timeEl.textContent = "00:00";
 
-  let idx=0;
-  for(let r=0;r<8;r++){
-    for(let c=0;c<18;c++){
-      if(idx>=values.length) break;
-      const div=document.createElement("div");
-      div.className="tile";
-      div.textContent=values[idx];
-      div.style.left=(c*90)+"px";
-      div.style.top=(r*120)+"px";
-      div.dataset.value=values[idx];
-      div.onclick=()=>clickTile(div);
-      board.appendChild(div);
-      tiles.push(div);
-      idx++;
-    }
-  }
+  const values = buildValues();
+
+  layout.forEach((pos, i) => {
+    const t = document.createElement("div");
+    t.className = "tile";
+    t.textContent = values[i];
+    t.style.left = (pos.c * (82+6) + pos.z*6) + "px";
+    t.style.top = (pos.r * (110+6) - pos.z*6) + "px";
+    t.style.zIndex = pos.z * 10;
+    t.dataset.value = values[i];
+    t.dataset.r = pos.r;
+    t.dataset.c = pos.c;
+    t.dataset.z = pos.z;
+    t.onclick = () => clickTile(t);
+    board.appendChild(t);
+    tiles.push(t);
+  });
+
   updateFree();
   updateStats();
 }
 
-function restart(){
+function restart() {
   newGame();
 }
 
-function updateStats(){
-  tilesLeft.textContent=tiles.filter(t=>!t.classList.contains("removed")).length;
-  movesEl.textContent=moves;
+function updateStats() {
+  tilesLeftEl.textContent = tiles.filter(t=>!t.classList.contains("hidden")).length;
+  movesEl.textContent = moves;
 }
 
-function updateFree(){
-  tiles.forEach(t=>{
-    if(!t.classList.contains("removed")){
+function isBlocked(tile) {
+  const r = +tile.dataset.r;
+  const c = +tile.dataset.c;
+  const z = +tile.dataset.z;
+
+  // On top?
+  if (tiles.some(t =>
+    !t.classList.contains("hidden") &&
+    +t.dataset.z > z &&
+    Math.abs(t.dataset.r - r) < 1 &&
+    Math.abs(t.dataset.c - c) < 1
+  )) return true;
+
+  // Left and right blocked?
+  const left = tiles.some(t =>
+    !t.classList.contains("hidden") &&
+    +t.dataset.z === z &&
+    +t.dataset.r === r &&
+    +t.dataset.c === c-1
+  );
+
+  const right = tiles.some(t =>
+    !t.classList.contains("hidden") &&
+    +t.dataset.z === z &&
+    +t.dataset.r === r &&
+    +t.dataset.c === c+1
+  );
+
+  return left && right;
+}
+
+function updateFree() {
+  tiles.forEach(t => {
+    if (t.classList.contains("hidden")) return;
+    if (isBlocked(t)) {
+      t.classList.add("blocked");
+      t.classList.remove("free");
+    } else {
+      t.classList.remove("blocked");
       t.classList.add("free");
     }
   });
 }
 
-function clickTile(tile){
-  if(tile.classList.contains("removed")) return;
+function clickTile(tile) {
+  if (tile.classList.contains("blocked") || tile.classList.contains("hidden")) return;
   startTimer();
 
-  if(!selected){
-    selected=tile;
+  if (!selected) {
+    selected = tile;
     tile.classList.add("selected");
     return;
   }
 
-  if(selected===tile){
+  if (selected === tile) {
     tile.classList.remove("selected");
-    selected=null;
+    selected = null;
     return;
   }
 
-  if(selected.dataset.value===tile.dataset.value){
-    selected.classList.add("removed");
-    tile.classList.add("removed");
-    selected.style.visibility="hidden";
-    tile.style.visibility="hidden";
+  if (selected.dataset.value === tile.dataset.value) {
+    selected.classList.add("hidden");
+    tile.classList.add("hidden");
     moves++;
     updateStats();
+    undoStack.push([selected, tile]);
   }
 
   selected.classList.remove("selected");
-  selected=null;
+  selected = null;
+  updateFree();
 }
 
-function hint(){}
+function undo() {
+  const last = undoStack.pop();
+  if (!last) return;
+  last.forEach(t => t.classList.remove("hidden"));
+  moves--;
+  updateStats();
+  updateFree();
+}
 
-function undo(){}
+function hint() {
+  const free = tiles.filter(t => t.classList.contains("free"));
+  for (let i=0;i<free.length;i++) {
+    for (let j=i+1;j<free.length;j++) {
+      if (free[i].dataset.value === free[j].dataset.value) {
+        free[i].classList.add("selected");
+        free[j].classList.add("selected");
+        setTimeout(()=>{
+          free[i].classList.remove("selected");
+          free[j].classList.remove("selected");
+        },700);
+        return;
+      }
+    }
+  }
+}
 
-function shuffleRemaining(){}
-
-//
-// 🔑 GitHub Pages render fix
-//
-setTimeout(() => {
-  newGame();
-}, 60);
+// GitHub Pages render fix
+setTimeout(newGame, 60);
 </script>
 
 </body>
