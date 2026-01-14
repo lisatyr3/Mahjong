@@ -104,7 +104,6 @@ button {
   font-weight:700;
   cursor:pointer;
   user-select:none;
-  transition:.15s;
 }
 
 .tile.free {
@@ -176,23 +175,32 @@ let startTime = 0;
 let timer = null;
 let undoStack = [];
 
-/* Classic layered layout */
+/* EXACT 144-POSITION LAYOUT */
 const layout = [];
 let id = 0;
 
-// Base layer
+// Base: 12 x 8 = 96
 for (let r=0; r<8; r++) {
-  for (let c=0; c<18; c++) {
+  for (let c=0; c<12; c++) {
     layout.push({id:id++, r, c, z:0});
   }
 }
 
-// Upper layer
+// Middle: 8 x 4 = 32
 for (let r=2; r<6; r++) {
-  for (let c=4; c<14; c++) {
+  for (let c=2; c<10; c++) {
     layout.push({id:id++, r, c, z:1});
   }
 }
+
+// Top: 4 x 4 = 16
+for (let r=3; r<7; r++) {
+  for (let c=4; c<8; c++) {
+    layout.push({id:id++, r, c, z:2});
+  }
+}
+
+// ✅ Total = 96 + 32 + 16 = 144
 
 function startTimer() {
   if (timer) return;
@@ -260,11 +268,10 @@ function updateStats() {
   movesEl.textContent = moves;
 }
 
-/* 🔒 TRUE MAHJONG BLOCKING */
 function isBlocked(tile) {
   const rect = tile.getBoundingClientRect();
 
-  // Blocked if anything overlaps from above
+  // Blocked from above
   for (const t of tiles) {
     if (
       t === tile ||
@@ -273,16 +280,15 @@ function isBlocked(tile) {
     ) continue;
 
     const r = t.getBoundingClientRect();
-    const overlap =
+    if (
       r.left < rect.right - 10 &&
       r.right > rect.left + 10 &&
       r.top < rect.bottom - 10 &&
-      r.bottom > rect.top + 10;
-
-    if (overlap) return true;
+      r.bottom > rect.top + 10
+    ) return true;
   }
 
-  // Blocked if BOTH left and right neighbors exist
+  // Left and right neighbors
   const left = tiles.some(t =>
     !t.classList.contains("hidden") &&
     +t.dataset.z === +tile.dataset.z &&
