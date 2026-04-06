@@ -16,56 +16,62 @@
         body {
             margin: 0;
             background: radial-gradient(circle, var(--bg-light) 0%, var(--bg-dark) 100%);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
+            height: 100vh;
+            overflow: hidden; /* Prevents scroll */
         }
 
         header {
-            padding: 15px;
+            padding: 10px;
             text-align: center;
-            z-index: 10;
+            flex-shrink: 0;
         }
 
         .stats {
             background: rgba(0,0,0,0.4);
-            padding: 8px 25px;
-            border-radius: 30px;
-            display: inline-block;
-            margin-bottom: 10px;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
             border: 1px solid rgba(255,255,255,0.1);
-            font-weight: bold;
-            letter-spacing: 1px;
         }
 
+        .controls { margin: 10px 0; }
         .controls button {
-            padding: 10px 25px;
-            font-size: 1rem;
+            padding: 8px 15px;
+            font-size: 0.85rem;
             cursor: pointer;
             border: none;
-            border-radius: 8px;
+            border-radius: 5px;
             font-weight: bold;
-            transition: all 0.1s;
-            margin: 0 8px;
+            margin: 0 5px;
             text-transform: uppercase;
         }
+        .btn-hint { background: #10b981; color: white; box-shadow: 0 3px 0 #047857; }
+        .btn-new { background: #ef4444; color: white; box-shadow: 0 3px 0 #b91c1c; }
+        .btn-help { background: #3b82f6; color: white; box-shadow: 0 3px 0 #1d4ed8; }
+        button:active { transform: translateY(2px); box-shadow: none; }
 
-        .btn-hint { background: #10b981; color: white; box-shadow: 0 4px 0 #047857; }
-        .btn-new { background: #ef4444; color: white; box-shadow: 0 4px 0 #b91c1c; }
-        
-        button:hover { filter: brightness(1.1); }
-        button:active { transform: translateY(3px); box-shadow: none; }
+        /* SCALING WRAPPER: This makes the board fit any screen */
+        .viewport {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
 
         .board-container {
             position: relative;
-            width: 1000px;
-            height: 750px;
-            margin-top: 10px;
-            user-select: none;
+            width: 950px;  /* Native width */
+            height: 700px; /* Native height */
+            transform-origin: center center;
+            /* Scaling applied via JS */
         }
 
         .tile {
@@ -78,7 +84,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
             box-shadow: 
                 -1px 1px 0 var(--tile-side),
                 -2px 2px 0 var(--tile-side),
@@ -87,91 +92,99 @@
                 -6px 8px 12px rgba(0,0,0,0.4);
         }
 
-        .tile::before {
-            content: '';
-            position: absolute;
-            inset: 4px;
-            border: 1px solid rgba(0,0,0,0.06);
-            border-radius: 3px;
-            pointer-events: none;
-        }
-
         .tile.selected {
             background: #fef08a;
-            transform: translate(2px, -10px);
+            transform: translate(2px, -8px);
             box-shadow: 0 0 20px #facc15, -3px 3px 0 var(--tile-back);
             z-index: 500 !important;
         }
 
-        .tile.hint {
-            animation: pulse 0.6s infinite alternate;
-        }
-
-        @keyframes pulse {
-            from { box-shadow: 0 0 5px #fff; }
-            to { box-shadow: 0 0 25px #3b82f6; outline: 4px solid #3b82f6; }
-        }
-
-        .tile.blocked {
-            filter: brightness(0.7) contrast(0.9);
-        }
-
+        .tile.blocked { filter: brightness(0.7) contrast(0.9); }
         .tile.hidden { display: none; }
+        .tile.hint { animation: pulse 0.6s infinite alternate; }
+        @keyframes pulse { from { box-shadow: 0 0 5px #fff; } to { box-shadow: 0 0 25px #3b82f6; } }
 
         .tile svg { width: 85%; height: 85%; pointer-events: none; }
 
-        #msg-overlay {
+        /* Modals */
+        .overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 2000;
-            backdrop-filter: blur(5px);
+            padding: 20px;
+            text-align: center;
         }
-
-        #msg-overlay h2 { font-size: 3.5rem; margin-bottom: 20px; }
+        .help-content {
+            background: #fff;
+            color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
 
 <header>
     <h1>Mahjong Solitaire</h1>
-    <div class="stats">TILES REMAINING: <span id="count">144</span></div>
+    <div class="stats">TILES: <span id="count">144</span></div>
     <div class="controls">
+        <button class="btn-help" onclick="toggleHelp(true)">Rules</button>
         <button class="btn-hint" onclick="getHint()">Hint</button>
         <button class="btn-new" onclick="location.reload()">New Game</button>
     </div>
 </header>
 
-<div class="board-container" id="board"></div>
+<div class="viewport" id="viewport">
+    <div class="board-container" id="board"></div>
+</div>
 
-<div id="msg-overlay">
+<div id="msg-overlay" class="overlay">
     <h2 id="msg-text">Game Over</h2>
     <button class="btn-new" onclick="location.reload()">Play Again</button>
 </div>
 
+<div id="help-overlay" class="overlay" onclick="toggleHelp(false)">
+    <div class="help-content" onclick="event.stopPropagation()">
+        <h3>How to Play</h3>
+        <ul>
+            <li>Match 2 identical tiles to remove them.</li>
+            <li>A tile is <b>Free</b> only if it has no tiles on top AND has either its left or right side open.</li>
+            <li>Darkened tiles are currently blocked.</li>
+            <li>Clear all 144 tiles to win!</li>
+        </ul>
+        <button class="btn-hint" style="width:100%" onclick="toggleHelp(false)">Got it!</button>
+    </div>
+</div>
+
 <script>
     const board = document.getElementById('board');
-    const msgOverlay = document.getElementById('msg-overlay');
+    const viewport = document.getElementById('viewport');
     let tiles = [];
     let selected = null;
 
+    // Responsive Scaling Logic
+    function resize() {
+        const boardW = 950;
+        const boardH = 750;
+        const scale = Math.min(viewport.clientWidth / boardW, viewport.clientHeight / boardH) * 0.95;
+        board.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', resize);
+
+    function toggleHelp(show) { document.getElementById('help-overlay').style.display = show ? 'flex' : 'none'; }
+
     function createTurtleLayout() {
         const layout = [];
-        for(let r=0; r<8; r++) {
-            for(let c=0; c<12; c++) {
-                if ((r>0 && r<7) || (c>0 && c<11)) layout.push({r, c, z:0});
-            }
-        }
-        for(let r=1; r<7; r++) {
-            for(let c=2; c<10; c++) layout.push({r, c, z:1});
-        }
-        for(let r=2; r<6; r++) {
-            for(let c=4; c<8; c++) layout.push({r, c, z:2});
-        }
+        for(let r=0; r<8; r++) for(let c=0; c<12; c++) if ((r>0 && r<7) || (c>0 && c<11)) layout.push({r, c, z:0});
+        for(let r=1; r<7; r++) for(let c=2; c<10; c++) layout.push({r, c, z:1});
+        for(let r=2; r<6; r++) for(let c=4; c<8; c++) layout.push({r, c, z:2});
         layout.push({r:3.5, c:5.5, z:3}, {r:3.5, c:6.5, z:3});
         return layout.slice(0, 144);
     }
@@ -179,41 +192,22 @@
     function getTileSVG(val) {
         const [type, num] = val.split('-');
         const colors = { dots: '#2563eb', bamboo: '#15803d', char: '#dc2626', wind: '#334155' };
-        
-        // Numerals 1-9 for the Character (Wan) suit
         const charNums = {'1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九'};
         const charMap = {'E':'東','S':'南','W':'西','N':'北','R':'中','G':'發','B':'白'};
-        
         let content = '';
-        if(type === 'dots') {
-            content = `<circle cx="50" cy="50" r="30" fill="none" stroke="${colors.dots}" stroke-width="5"/><text x="50" y="62" text-anchor="middle" fill="${colors.dots}" font-weight="bold" font-size="32">${num}</text>`;
-        } else if(type === 'bamboo') {
-            content = `<rect x="42" y="20" width="16" height="60" rx="3" fill="${colors.bamboo}"/><text x="50" y="58" text-anchor="middle" fill="white" font-size="22" font-weight="bold">${num}</text>`;
-        } else if(type === 'char') {
-            // FIX: This now explicitly draws the specific number character above the "Wan" symbol
-            content = `
-                <text x="85" y="20" text-anchor="end" font-size="16" font-weight="bold" fill="#bbb" font-family="sans-serif">${num}</text>
-                <text x="50" y="42" text-anchor="middle" font-size="34" font-weight="bold" fill="${colors.char}">${charNums[num]}</text>
-                <text x="50" y="78" text-anchor="middle" font-size="34" fill="${colors.char}">萬</text>`;
-        } else {
-            const displayChar = charMap[num] || charMap[type] || num;
-            content = `<text x="50" y="68" text-anchor="middle" font-size="52" fill="${colors[type] || '#333'}">${displayChar}</text>`;
-        }
+        if(type === 'dots') content = `<circle cx="50" cy="50" r="30" fill="none" stroke="${colors.dots}" stroke-width="5"/><text x="50" y="62" text-anchor="middle" fill="${colors.dots}" font-weight="bold" font-size="32">${num}</text>`;
+        else if(type === 'bamboo') content = `<rect x="42" y="20" width="16" height="60" rx="3" fill="${colors.bamboo}"/><text x="50" y="58" text-anchor="middle" fill="white" font-size="22" font-weight="bold">${num}</text>`;
+        else if(type === 'char') content = `<text x="85" y="20" text-anchor="end" font-size="16" fill="#bbb">${num}</text><text x="50" y="42" text-anchor="middle" font-size="34" font-weight="bold" fill="${colors.char}">${charNums[num]}</text><text x="50" y="78" text-anchor="middle" font-size="34" fill="${colors.char}">萬</text>`;
+        else content = `<text x="50" y="68" text-anchor="middle" font-size="52" fill="${colors[type] || '#333'}">${charMap[num] || charMap[type] || num}</text>`;
         return `<svg viewBox="0 0 100 100">${content}</svg>`;
     }
 
     function init() {
-        board.innerHTML = "";
-        tiles = [];
+        board.innerHTML = ""; tiles = [];
         const layout = createTurtleLayout();
         const values = [];
-
-        ['dots','bamboo','char'].forEach(t => { 
-            for(let i=1; i<=9; i++) for(let j=0; j<4; j++) values.push(`${t}-${i}`); 
-        });
-        ['E','S','W','N','R','G'].forEach(v => { 
-            for(let j=0; j<4; j++) values.push(`wind-${v}`); 
-        });
+        ['dots','bamboo','char'].forEach(t => { for(let i=1; i<=9; i++) for(let j=0; j<4; j++) values.push(`${t}-${i}`); });
+        ['E','S','W','N','R','G'].forEach(v => { for(let j=0; j<4; j++) values.push(`wind-${v}`); });
         while(values.length < 144) values.push('wind-B'); 
         values.sort(() => Math.random() - 0.5);
 
@@ -222,98 +216,48 @@
             t.className = 'tile';
             t.dataset.v = values[i];
             t.dataset.r = p.r; t.dataset.c = p.c; t.dataset.z = p.z;
-            
-            const x = (p.c * 68) - (p.z * 5) + 100;
-            const y = (p.r * 88) - (p.z * 5) + 40;
-            
-            t.style.left = `${x}px`;
-            t.style.top = `${y}px`;
+            t.style.left = `${(p.c * 68) - (p.z * 5) + 50}px`;
+            t.style.top = `${(p.r * 88) - (p.z * 5) + 20}px`;
             t.style.zIndex = p.z;
-            
             t.innerHTML = getTileSVG(values[i]);
             t.onclick = () => handleTileClick(t);
             board.appendChild(t);
             tiles.push(t);
         });
-        
-        if (!checkHasMoves()) { init(); } 
+        resize();
         updateBoardState();
     }
 
     function isTileBlocked(t) {
-        const r = parseFloat(t.dataset.r);
-        const c = parseFloat(t.dataset.c);
-        const z = parseInt(t.dataset.z);
+        const r = parseFloat(t.dataset.r); const c = parseFloat(t.dataset.c); const z = parseInt(t.dataset.z);
         const active = tiles.filter(x => !x.classList.contains('hidden') && x !== t);
-        
-        const onTop = active.some(x => 
-            parseInt(x.dataset.z) > z && 
-            Math.abs(parseFloat(x.dataset.r) - r) < 1 && 
-            Math.abs(parseFloat(x.dataset.c) - c) < 1
-        );
+        const onTop = active.some(x => parseInt(x.dataset.z) > z && Math.abs(parseFloat(x.dataset.r)-r) < 1 && Math.abs(parseFloat(x.dataset.c)-c) < 1);
         if(onTop) return true;
-
         const bLeft = active.some(x => parseInt(x.dataset.z) === z && Math.abs(parseFloat(x.dataset.r)-r) < 1 && parseFloat(x.dataset.c) === c-1);
         const bRight = active.some(x => parseInt(x.dataset.z) === z && Math.abs(parseFloat(x.dataset.r)-r) < 1 && parseFloat(x.dataset.c) === c+1);
-        
         return bLeft && bRight;
     }
 
-    function checkHasMoves() {
-        const free = tiles.filter(t => !t.classList.contains('hidden') && !isTileBlocked(t));
-        return free.some(t1 => free.some(t2 => t1 !== t2 && t1.dataset.v === t2.dataset.v));
-    }
-
     function updateBoardState() {
-        tiles.forEach(t => {
-            if(!t.classList.contains('hidden')) t.classList.toggle('blocked', isTileBlocked(t));
-        });
-
+        tiles.forEach(t => { if(!t.classList.contains('hidden')) t.classList.toggle('blocked', isTileBlocked(t)); });
         const remaining = tiles.filter(t => !t.classList.contains('hidden'));
         document.getElementById('count').textContent = remaining.length;
-
-        if (remaining.length === 0) {
-            document.getElementById('msg-text').textContent = "Victory!";
-            msgOverlay.style.display = 'flex';
-        } else if(!checkHasMoves()) {
-            document.getElementById('msg-text').textContent = "No More Moves";
-            msgOverlay.style.display = 'flex';
-        }
+        if (remaining.length === 0) { document.getElementById('msg-text').textContent = "Victory!"; document.getElementById('msg-overlay').style.display = 'flex'; }
     }
 
     function getHint() {
         tiles.forEach(t => t.classList.remove('hint'));
         const free = tiles.filter(t => !t.classList.contains('hidden') && !t.classList.contains('blocked'));
-        for(let t1 of free) {
-            for(let t2 of free) {
-                if(t1 !== t2 && t1.dataset.v === t2.dataset.v) {
-                    t1.classList.add('hint'); t2.classList.add('hint');
-                    return;
-                }
-            }
-        }
+        for(let t1 of free) for(let t2 of free) if(t1 !== t2 && t1.dataset.v === t2.dataset.v) { t1.classList.add('hint'); t2.classList.add('hint'); return; }
     }
 
     function handleTileClick(t) {
         if(t.classList.contains('blocked')) return;
         tiles.forEach(tile => tile.classList.remove('hint'));
-
-        if(!selected) {
-            selected = t;
-            t.classList.add('selected');
-        } else if(selected === t) {
-            selected.classList.remove('selected');
-            selected = null;
-        } else if(selected.dataset.v === t.dataset.v) {
-            t.classList.add('hidden');
-            selected.classList.add('hidden');
-            selected = null;
-            updateBoardState();
-        } else {
-            selected.classList.remove('selected');
-            selected = t;
-            t.classList.add('selected');
-        }
+        if(!selected) { selected = t; t.classList.add('selected'); }
+        else if(selected === t) { selected.classList.remove('selected'); selected = null; }
+        else if(selected.dataset.v === t.dataset.v) { t.classList.add('hidden'); selected.classList.add('hidden'); selected = null; updateBoardState(); }
+        else { selected.classList.remove('selected'); selected = t; t.classList.add('selected'); }
     }
 
     init();
