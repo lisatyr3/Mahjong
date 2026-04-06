@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elegant Mahjong - Smart Edition</title>
+    <title>Elegant Mahjong - Fixed Deadlock</title>
     <style>
         :root {
             --tile-bg: #ffffff;
@@ -134,18 +134,18 @@
         <h2>How to Play</h2>
         <ul style="text-align: left; line-height: 1.6;">
             <li>Match two tiles with the same corner number and color.</li>
-            <li>A tile is <b>playable</b> (bright) only if it has nothing on top and either its left or right side is free.</li>
-            <li>Darker tiles are <b>blocked</b> and cannot be clicked.</li>
+            <li>A tile is <b>playable</b> if it is bright.</li>
+            <li>Dark tiles are <b>blocked</b>.</li>
         </ul>
-        <button class="btn-help" style="width:100%" onclick="toggleOverlay('help-overlay', false)">Got it!</button>
+        <button class="btn-help" style="width:100%" onclick="toggleOverlay('help-overlay', false)">Start Game</button>
     </div>
 </div>
 
 <div id="status-overlay" class="overlay">
     <div class="msg-box">
         <h2 id="status-title">No More Moves!</h2>
-        <p id="status-msg">The board is deadlocked. Time for a new game!</p>
-        <button class="btn-new" style="width:100%" onclick="location.reload()">Play Again</button>
+        <p id="status-msg">The board is deadlocked.</p>
+        <button class="btn-new" style="width:100%" onclick="location.reload()">Restart</button>
     </div>
 </div>
 
@@ -219,17 +219,18 @@
     }
 
     function updateBoardState() {
-        tiles.forEach(t => { if(!t.classList.contains('hidden')) t.classList.toggle('blocked', isBlocked(t)); });
         const remaining = tiles.filter(t => !t.classList.contains('hidden'));
+        tiles.forEach(t => { if(!t.classList.contains('hidden')) t.classList.toggle('blocked', isBlocked(t)); });
         document.getElementById('count').textContent = remaining.length;
         
         if (remaining.length === 0) {
             showGameOver("Victory!", "You cleared the board!");
-        } else {
-            const free = remaining.filter(t => !isBlocked(t));
-            const hasMove = free.some(t1 => free.some(t2 => t1 !== t2 && t1.dataset.match === t2.dataset.match));
-            if (!hasMove) showGameOver("No More Moves!", "There are no playable matches left.");
+            return;
         }
+
+        const free = remaining.filter(t => !isBlocked(t));
+        const hasMove = free.some(t1 => free.some(t2 => t1 !== t2 && t1.dataset.match === t2.dataset.match));
+        if (!hasMove) showGameOver("No More Moves!", "There are no playable matches left.");
     }
 
     function showGameOver(title, msg) {
@@ -249,11 +250,28 @@
     function handleTileClick(t) {
         if(isBlocked(t)) return;
         tiles.forEach(tile => tile.classList.remove('hint'));
-        if(!selected) { selected = t; t.classList.add('selected'); }
-        else if(selected === t) { selected.classList.remove('selected'); selected = null; }
+        if(!selected) { 
+            selected = t; 
+            t.classList.add('selected'); 
+        }
+        else if(selected === t) { 
+            selected.classList.remove('selected'); 
+            selected = null; 
+        }
         else if(selected.dataset.match === t.dataset.match) {
-            t.classList.add('hidden'); selected.classList.add('hidden'); selected = null; updateBoardState();
-        } else { selected.classList.remove('selected'); selected = t; t.classList.add('selected'); }
+            t.classList.add('hidden'); 
+            selected.classList.add('hidden'); 
+            selected = null; 
+            updateBoardState();
+        } else { 
+            selected.classList.remove('selected'); 
+            selected = t; 
+            t.classList.add('selected'); 
+        }
+        // Force state update on every click to catch deadlocks early
+        if (tiles.filter(t => !t.classList.contains('hidden')).length > 0) {
+            updateBoardState();
+        }
     }
 
     init();
