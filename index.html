@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy-Read Mahjong</title>
+    <title>Elegant High-Visibility Mahjong</title>
     <style>
         :root {
             --tile-bg: #ffffff;
-            --tile-side: #999;
-            --tile-back: #047857;
-            --bg-table: #064e3b;
+            --tile-side: #d1d5db;
+            --tile-back: #065f46;
+            --bg-table: #022c22;
         }
 
         body {
             margin: 0;
-            background-color: var(--bg-table);
-            font-family: Arial, sans-serif;
+            background: radial-gradient(circle, #064e3b 0%, var(--bg-table) 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
@@ -27,23 +27,26 @@
         header {
             padding: 10px;
             text-align: center;
-            background: rgba(0,0,0,0.2);
+            flex-shrink: 0;
             width: 100%;
         }
 
         .controls button {
-            padding: 12px 24px;
-            font-size: 1.2rem; /* Larger buttons */
+            padding: 10px 20px;
+            font-size: 1rem;
             cursor: pointer;
-            border: 2px solid white;
-            border-radius: 10px;
+            border: none;
+            border-radius: 8px;
             font-weight: bold;
-            margin: 5px;
+            margin: 0 5px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            transition: all 0.1s;
         }
 
-        .btn-hint { background: #059669; color: white; }
-        .btn-new { background: #dc2626; color: white; }
-        .btn-help { background: #2563eb; color: white; }
+        .btn-help { background: #3b82f6; color: white; }
+        .btn-hint { background: #10b981; color: white; }
+        .btn-new { background: #ef4444; color: white; }
+        button:active { transform: translateY(3px); box-shadow: none; }
 
         .viewport {
             flex: 1;
@@ -51,82 +54,64 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
+            overflow: hidden;
         }
 
         .board-container {
             position: relative;
-            width: 950px;
-            height: 750px;
+            width: 1000px;
+            height: 800px;
             transform-origin: center center;
         }
 
         .tile {
             position: absolute;
-            width: 65px;
-            height: 85px;
-            background: var(--tile-bg);
-            border-radius: 6px;
+            width: 68px;
+            height: 90px;
+            background: white;
+            border-radius: 5px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            /* Extra thick 3D effect for better visibility */
             box-shadow: 
+                -1px 1px 0 var(--tile-side),
                 -2px 2px 0 var(--tile-side),
+                -3px 3px 0 var(--tile-back),
                 -4px 4px 0 var(--tile-back),
-                -6px 6px 10px rgba(0,0,0,0.5);
-            border: 1px solid #000;
+                -6px 8px 15px rgba(0,0,0,0.4);
+            border: 1px solid rgba(0,0,0,0.1);
         }
 
         .tile.selected {
-            background: #ffff00; /* Bright Yellow */
-            transform: scale(1.1);
+            background: #fef08a;
+            transform: translate(2px, -10px);
+            box-shadow: 0 0 25px #facc15, -3px 3px 0 var(--tile-back);
             z-index: 1000 !important;
-            border: 3px solid #000;
         }
 
-        .tile.blocked {
-            filter: brightness(0.4); /* Much darker when blocked */
-        }
-
+        .tile.blocked { filter: brightness(0.6) grayscale(0.2); }
         .tile.hidden { display: none; }
-
-        /* Very clear pulse for hints */
-        .tile.hint {
-            outline: 5px solid #3b82f6;
-            animation: blink 0.5s step-end infinite;
-        }
+        .tile.hint { animation: blink 0.5s step-end infinite; outline: 4px solid #3b82f6; }
         @keyframes blink { 50% { outline-color: transparent; } }
 
-        /* Large, thick text for tiles */
-        .tile-text {
-            font-size: 42px;
-            font-weight: 900;
-            user-select: none;
-        }
-        .color-dots { color: #1e40af; }   /* Blue */
-        .color-bamboo { color: #166534; } /* Green */
-        .color-char { color: #991b1b; }   /* Red */
-        .color-special { color: #111827; } /* Black */
+        .tile svg { width: 100%; height: 100%; }
 
+        /* Modal Styles */
         .overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.85);
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 2000;
         }
-        .help-content {
+        .help-box {
             background: white;
-            color: black;
+            color: #333;
             padding: 30px;
             border-radius: 15px;
-            max-width: 500px;
-            font-size: 1.3rem;
+            max-width: 450px;
+            font-size: 1.2rem;
         }
     </style>
 </head>
@@ -134,29 +119,24 @@
 
 <header>
     <div class="controls">
-        <button class="btn-help" onclick="toggleHelp(true)">HOW TO PLAY</button>
-        <button class="btn-hint" onclick="getHint()">GIVE ME A HINT</button>
-        <button class="btn-new" onclick="location.reload()">RESTART GAME</button>
+        <button class="btn-help" onclick="toggleHelp(true)">Rules</button>
+        <button class="btn-hint" onclick="getHint()">Need a Hint?</button>
+        <button class="btn-new" onclick="location.reload()">New Game</button>
     </div>
-    <div style="font-size: 1.2rem; margin-top: 5px;">Tiles Left: <b id="count">144</b></div>
+    <div style="margin-top: 8px;">Tiles Remaining: <b id="count">144</b></div>
 </header>
 
 <div class="viewport" id="viewport">
     <div class="board-container" id="board"></div>
 </div>
 
-<div id="msg-overlay" class="overlay">
-    <h2 id="msg-text" style="font-size: 4rem;">Game Over</h2>
-    <button class="btn-new" onclick="location.reload()">PLAY AGAIN</button>
-</div>
-
 <div id="help-overlay" class="overlay" onclick="toggleHelp(false)">
-    <div class="help-content" onclick="event.stopPropagation()">
-        <h2>Rules</h2>
-        <p>1. Find two tiles with the <b>same number and color</b>.</p>
-        <p>2. You can only pick a tile if it has <b>no tiles on top</b> and an <b>open left or right side</b>.</p>
-        <p>3. Dark tiles are locked. Light tiles are ready to match!</p>
-        <button class="btn-help" style="width:100%" onclick="toggleHelp(false)">START PLAYING</button>
+    <div class="help-box" onclick="event.stopPropagation()">
+        <h2>How to Play</h2>
+        <p>1. Select two matching tiles to remove them.</p>
+        <p>2. A tile is <b>playable</b> if it has no tiles on top and either the left or right side is empty.</p>
+        <p>3. Use the large numbers in the corners to help you identify matches quickly!</p>
+        <button class="btn-help" style="width:100%" onclick="toggleHelp(false)">Start Game</button>
     </div>
 </div>
 
@@ -167,52 +147,68 @@
     let selected = null;
 
     function resize() {
-        const boardW = 1000;
-        const boardH = 800;
-        const scale = Math.min(viewport.clientWidth / boardW, viewport.clientHeight / boardH) * 0.95;
+        const scale = Math.min(viewport.clientWidth / 1050, viewport.clientHeight / 850) * 0.95;
         board.style.transform = `scale(${scale})`;
     }
     window.addEventListener('resize', resize);
 
     function toggleHelp(show) { document.getElementById('help-overlay').style.display = show ? 'flex' : 'none'; }
 
+    function getTileSVG(type, val) {
+        const colors = { dots: '#1e40af', bamboo: '#15803d', char: '#b91c1c', wind: '#334155' };
+        const charMap = {'1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','E':'東','S':'南','W':'西','N':'北','C':'中','F':'發','P':'白'};
+        
+        let artwork = '';
+        if (type === 'dots') {
+            const positions = [
+                [], [[50,50]], [[30,30],[70,70]], [[30,30],[50,50],[70,70]],
+                [[35,35],[65,35],[35,65],[65,65]], [[30,30],[70,30],[50,50],[30,70],[70,70]],
+                [[35,30],[65,30],[35,50],[65,50],[35,70],[65,70]],
+                [[35,25],[65,25],[30,45],[50,50],[70,55],[35,75],[65,75]],
+                [[30,30],[50,30],[70,30],[30,50],[50,50],[70,50],[30,70],[50,70],[70,70]]
+            ];
+            (positions[val] || []).forEach(pos => {
+                artwork += `<circle cx="${pos[0]}" cy="${pos[1]}" r="8" fill="${colors.dots}" stroke="rgba(0,0,0,0.2)"/>`;
+            });
+        } else if (type === 'bamboo') {
+            for(let i=0; i<val; i++) {
+                artwork += `<rect x="${30 + (i%3)*15}" y="${25 + Math.floor(i/3)*20}" width="8" height="15" rx="2" fill="${colors.bamboo}"/>`;
+            }
+        } else {
+            artwork = `<text x="50" y="65" text-anchor="middle" font-size="45" font-weight="bold" fill="${colors[type] || '#333'}">${charMap[val] || val}</text>`;
+            if (type === 'char') artwork += `<text x="50" y="85" text-anchor="middle" font-size="20" fill="${colors.char}">萬</text>`;
+        }
+
+        return `
+            <svg viewBox="0 0 100 100">
+                <text x="12" y="22" font-size="24" font-weight="900" fill="#333" font-family="Arial">${val}</text>
+                ${artwork}
+            </svg>`;
+    }
+
     function init() {
-        board.innerHTML = "";
+        board.innerHTML = ""; tiles = [];
         const layout = [];
-        // Standard Turtle Layout
         for(let r=0; r<8; r++) for(let c=0; c<12; c++) if ((r>0 && r<7) || (c>0 && c<11)) layout.push({r, c, z:0});
         for(let r=1; r<7; r++) for(let c=2; c<10; c++) layout.push({r, c, z:1});
         for(let r=2; r<6; r++) for(let c=4; c<8; c++) layout.push({r, c, z:2});
         layout.push({r:3.5, c:5.5, z:3}, {r:3.5, c:6.5, z:3});
-        
-        const deck = [];
-        const suits = [
-            { name: 'dots', color: 'color-dots' },
-            { name: 'bamboo', color: 'color-bamboo' },
-            { name: 'char', color: 'color-char' }
-        ];
 
-        suits.forEach(s => {
-            for(let i=1; i<=9; i++) for(let j=0; j<4; j++) deck.push({val: i, class: s.color});
-        });
-        // Winds/Dragons simplified to letters
-        ['N','E','S','W','C','F'].forEach(v => {
-            for(let j=0; j<4; j++) deck.push({val: v, class: 'color-special'});
-        });
-        while(deck.length < 144) deck.push({val: 'X', class: 'color-special'});
-        
+        const deck = [];
+        ['dots','bamboo','char'].forEach(s => { for(let i=1; i<=9; i++) for(let j=0; j<4; j++) deck.push({t: s, v: i}); });
+        ['E','S','W','N','C','F'].forEach(v => { for(let j=0; j<4; j++) deck.push({t: 'wind', v: v}); });
+        while(deck.length < 144) deck.push({t: 'wind', v: 'P'});
         deck.sort(() => Math.random() - 0.5);
 
         layout.slice(0, 144).forEach((p, i) => {
             const t = document.createElement('div');
             t.className = 'tile';
-            t.dataset.v = deck[i].val + deck[i].class;
-            t.style.left = `${(p.c * 70) - (p.z * 6) + 50}px`;
-            t.style.top = `${(p.r * 90) - (p.z * 6) + 30}px`;
+            t.dataset.match = deck[i].t + deck[i].v;
+            t.style.left = `${(p.c * 72) - (p.z * 6) + 60}px`;
+            t.style.top = `${(p.r * 92) - (p.z * 6) + 40}px`;
             t.style.zIndex = p.z;
             t.dataset.r = p.r; t.dataset.c = p.c; t.dataset.z = p.z;
-            
-            t.innerHTML = `<span class="tile-text ${deck[i].class}">${deck[i].val}</span>`;
+            t.innerHTML = getTileSVG(deck[i].t, deck[i].v);
             t.onclick = () => handleTileClick(t);
             board.appendChild(t);
             tiles.push(t);
@@ -235,13 +231,12 @@
         tiles.forEach(t => { if(!t.classList.contains('hidden')) t.classList.toggle('blocked', isBlocked(t)); });
         const remaining = tiles.filter(t => !t.classList.contains('hidden'));
         document.getElementById('count').textContent = remaining.length;
-        if(remaining.length === 0) { document.getElementById('msg-text').textContent = "YOU WIN!"; document.getElementById('msg-overlay').style.display = 'flex'; }
     }
 
     function getHint() {
         tiles.forEach(t => t.classList.remove('hint'));
         const free = tiles.filter(t => !t.classList.contains('hidden') && !isBlocked(t));
-        for(let t1 of free) for(let t2 of free) if(t1 !== t2 && t1.dataset.v === t2.dataset.v) {
+        for(let t1 of free) for(let t2 of free) if(t1 !== t2 && t1.dataset.match === t2.dataset.match) {
             t1.classList.add('hint'); t2.classList.add('hint'); return;
         }
     }
@@ -251,11 +246,9 @@
         tiles.forEach(tile => tile.classList.remove('hint'));
         if(!selected) { selected = t; t.classList.add('selected'); }
         else if(selected === t) { selected.classList.remove('selected'); selected = null; }
-        else if(selected.dataset.v === t.dataset.v) {
+        else if(selected.dataset.match === t.dataset.match) {
             t.classList.add('hidden'); selected.classList.add('hidden'); selected = null; updateBoardState();
-        } else {
-            selected.classList.remove('selected'); selected = t; t.classList.add('selected');
-        }
+        } else { selected.classList.remove('selected'); selected = t; t.classList.add('selected'); }
     }
 
     init();
